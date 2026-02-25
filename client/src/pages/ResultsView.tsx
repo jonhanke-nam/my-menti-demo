@@ -114,7 +114,7 @@ export default function ResultsView() {
               onChange={(e) => setSelectedSessionId(e.target.value)}
               className="mt-2 text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">All sessions ({sessions.reduce((s, sess) => s + sess.responseCount, 0)} responses)</option>
+              <option value="all">All sessions ({data.totalResponses} responses)</option>
               {sessions.map((s, i) => {
                 const date = new Date(s.startedAt * 1000);
                 const label = date.toLocaleDateString(undefined, {
