@@ -4,6 +4,7 @@ import Dashboard from "./pages/Dashboard";
 import PresenterView from "./pages/PresenterView";
 import JoinPage from "./pages/JoinPage";
 import ParticipantView from "./pages/ParticipantView";
+import ResultsView from "./pages/ResultsView";
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <Route path="/present/:roomCode" element={<PresenterView />} />
         <Route path="/join" element={<JoinPage />} />
         <Route path="/participate/:roomCode" element={<ParticipantView />} />
+        <Route path="/results/:id" element={<ResultsView />} />
       </Routes>
     </div>
   );

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "../db/client";
-import { presentations, questions } from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { presentations, questions, responses } from "../db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import crypto from "crypto";
 
@@ -14,7 +14,7 @@ function generateRoomCode(): string {
 // All routes require auth
 presentationsRouter.use(requireAuth as any);
 
-// GET /api/presentations — list presenter's presentations
+// GET /api/presentations — list presenter's presentations (with response counts)
 presentationsRouter.get("/", (req: AuthRequest, res) => {
   try {
     const rows = db
@@ -22,7 +22,19 @@ presentationsRouter.get("/", (req: AuthRequest, res) => {
       .from(presentations)
       .where(eq(presentations.userId, req.user!.userId))
       .all();
-    res.json(rows);
+
+    // Attach responseCount to each presentation
+    const withCounts = rows.map((pres) => {
+      const countRow = db
+        .select({ count: sql<number>`count(*)` })
+        .from(responses)
+        .innerJoin(questions, eq(responses.questionId, questions.id))
+        .where(eq(questions.presentationId, pres.id))
+        .get();
+      return { ...pres, responseCount: countRow?.count ?? 0 };
+    });
+
+    res.json(withCounts);
   } catch (error) {
     console.error("List presentations error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -85,6 +97,102 @@ presentationsRouter.get("/:id", (req: AuthRequest, res) => {
     res.json({ ...presentation, questions: questionRows });
   } catch (error) {
     console.error("Get presentation error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/presentations/:id/results — get all questions with aggregated results
+presentationsRouter.get("/:id/results", (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    const presentation = db
+      .select()
+      .from(presentations)
+      .where(
+        and(
+          eq(presentations.id, id),
+          eq(presentations.userId, req.user!.userId)
+        )
+      )
+      .get();
+
+    if (!presentation) {
+      res.status(404).json({ error: "Presentation not found" });
+      return;
+    }
+
+    const questionRows = db
+      .select()
+      .from(questions)
+      .where(eq(questions.presentationId, id))
+      .orderBy(questions.orderIndex)
+      .all();
+
+    let totalParticipants = 0;
+    let totalResponses = 0;
+
+    const questionsWithResults = questionRows.map((q) => {
+      // Aggregate vote counts
+      const countRows = db
+        .select({
+          value: responses.value,
+          count: sql<number>`count(*)`,
+        })
+        .from(responses)
+        .where(eq(responses.questionId, q.id))
+        .groupBy(responses.value)
+        .all();
+
+      const counts: Record<string, number> = {};
+      let qTotal = 0;
+      for (const row of countRows) {
+        counts[row.value] = row.count;
+        qTotal += row.count;
+      }
+
+      // Distinct participants for this question
+      const participantRow = db
+        .select({ count: sql<number>`count(distinct ${responses.participantId})` })
+        .from(responses)
+        .where(eq(responses.questionId, q.id))
+        .get();
+
+      const participantCount = participantRow?.count ?? 0;
+      const avgResponsesPerPerson = participantCount > 0
+        ? Math.round((qTotal / participantCount) * 10) / 10
+        : 0;
+
+      totalResponses += qTotal;
+
+      return {
+        ...q,
+        counts,
+        participantCount,
+        totalResponses: qTotal,
+        avgResponsesPerPerson,
+      };
+    });
+
+    // Overall distinct participants across all questions in this presentation
+    const overallParticipants = db
+      .select({ count: sql<number>`count(distinct ${responses.participantId})` })
+      .from(responses)
+      .innerJoin(questions, eq(responses.questionId, questions.id))
+      .where(eq(questions.presentationId, id))
+      .get();
+
+    totalParticipants = overallParticipants?.count ?? 0;
+
+    res.json({
+      id: presentation.id,
+      title: presentation.title,
+      questions: questionsWithResults,
+      totalParticipants,
+      totalResponses,
+    });
+  } catch (error) {
+    console.error("Get presentation results error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

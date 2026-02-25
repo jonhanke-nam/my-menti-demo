@@ -17,6 +17,7 @@ export interface Presentation {
   isActive: number;
   createdAt: number;
   questions?: Question[];
+  responseCount?: number;
 }
 
 interface SessionState {

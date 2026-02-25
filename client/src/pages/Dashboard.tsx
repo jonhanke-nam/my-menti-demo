@@ -244,6 +244,14 @@ export default function Dashboard() {
                     >
                       Edit
                     </button>
+                    {(pres.responseCount ?? 0) > 0 && (
+                      <button
+                        onClick={() => navigate(`/results/${pres.id}`)}
+                        className="px-3 py-1.5 text-sm bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition"
+                      >
+                        Results
+                      </button>
+                    )}
                     <button
                       onClick={() => activatePresentation(pres.id)}
                       className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
