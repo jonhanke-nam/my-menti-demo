@@ -227,8 +227,38 @@ export default function Dashboard() {
             <p className="text-sm mt-1">Create one above to get started</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {presentations.map((pres) => (
+          <div className="space-y-6">
+            {/* My Presentations (custom) */}
+            {presentations.filter((p) => p.isDemo !== 1).length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">My Presentations</h2>
+                <div className="space-y-4">
+                  {presentations.filter((p) => p.isDemo !== 1).map((pres) => (
+                    <PresentationCard key={pres.id} pres={pres} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Demo Presentations */}
+            {presentations.filter((p) => p.isDemo === 1).length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Demo Presentations</h2>
+                <div className="space-y-4">
+                  {presentations.filter((p) => p.isDemo === 1).map((pres) => (
+                    <PresentationCard key={pres.id} pres={pres} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  function PresentationCard({ pres }: { pres: Presentation }) {
+    return (
               <div
                 key={pres.id}
                 className="bg-white rounded-xl border border-gray-200 p-5"
@@ -236,6 +266,11 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-semibold text-gray-800">
                     {pres.title}
+                    {pres.isDemo === 1 && (
+                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full ml-2 font-normal">
+                        Demo
+                      </span>
+                    )}
                   </h3>
                   <div className="flex gap-2">
                     <button
@@ -505,10 +540,6 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+    );
+  }
 }

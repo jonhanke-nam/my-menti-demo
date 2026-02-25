@@ -15,6 +15,7 @@ export interface Presentation {
   title: string;
   roomCode: string | null;
   isActive: number;
+  isDemo: number;
   createdAt: number;
   questions?: Question[];
   responseCount?: number;

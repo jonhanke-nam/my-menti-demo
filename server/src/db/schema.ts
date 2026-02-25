@@ -17,6 +17,7 @@ export const presentations = sqliteTable("presentations", {
   title: text("title").notNull(),
   roomCode: text("room_code").unique(),
   isActive: integer("is_active").notNull().default(0),
+  isDemo: integer("is_demo").notNull().default(0),
   createdAt: integer("created_at")
     .notNull()
     .$defaultFn(() => Math.floor(Date.now() / 1000)),

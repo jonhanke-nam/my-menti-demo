@@ -8,6 +8,13 @@
       "when": 1772018958329,
       "tag": "0000_slimy_boomerang",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1772027342774,
+      "tag": "0001_dashing_hitman",
+      "breakpoints": true
     }
   ]
 }

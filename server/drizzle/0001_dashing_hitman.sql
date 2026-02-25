@@ -1,0 +1,1 @@
+ALTER TABLE `presentations` ADD `is_demo` integer DEFAULT 0 NOT NULL;
