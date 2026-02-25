@@ -12,6 +12,8 @@ export default function ParticipantView() {
   const [justVoted, setJustVoted] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [connected, setConnected] = useState(false);
+  const [disconnected, setDisconnected] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!roomCode) return;
@@ -20,7 +22,12 @@ export default function ParticipantView() {
 
     socket.on("connect", () => {
       setConnected(true);
+      setDisconnected(false);
       socket.emit("participant:join", { roomCode });
+    });
+
+    socket.on("disconnect", () => {
+      setDisconnected(true);
     });
 
     socket.on("session:question", ({ question }: { question: Question }) => {
@@ -35,11 +42,13 @@ export default function ParticipantView() {
     });
 
     socket.on("session:error", ({ message }: { message: string }) => {
-      console.error("Session error:", message);
+      setError(message);
+      setTimeout(() => setError(""), 4000);
     });
 
     return () => {
       socket.off("connect");
+      socket.off("disconnect");
       socket.off("session:question");
       socket.off("session:ended");
       socket.off("session:error");
@@ -97,6 +106,18 @@ export default function ParticipantView() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-500 to-teal-600 p-4 flex flex-col">
+      {/* Connection status banner */}
+      {disconnected && (
+        <div className="bg-yellow-500 text-yellow-900 text-center py-2 px-4 text-sm font-medium">
+          Connection lost — reconnecting...
+        </div>
+      )}
+      {error && (
+        <div className="bg-red-500 text-white text-center py-2 px-4 text-sm font-medium">
+          {error}
+        </div>
+      )}
+
       <div className="text-center text-white mb-6 pt-4">
         <p className="text-sm text-green-100">Room: {roomCode}</p>
       </div>

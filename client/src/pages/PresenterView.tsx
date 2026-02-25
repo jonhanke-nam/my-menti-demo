@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import { socket } from "../socket";
 import { useSessionStore } from "../store/sessionStore";
 import type { Question } from "../store/sessionStore";
@@ -9,6 +10,13 @@ import OpenText from "../components/slides/OpenText";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
+function getJoinUrl(roomCode: string): string {
+  const host = window.location.hostname;
+  const port = window.location.port;
+  const protocol = window.location.protocol;
+  return `${protocol}//${host}${port ? `:${port}` : ""}/join?code=${roomCode}`;
+}
+
 export default function PresenterView() {
   const { roomCode } = useParams<{ roomCode: string }>();
   const navigate = useNavigate();
@@ -17,6 +25,8 @@ export default function PresenterView() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [connected, setConnected] = useState(false);
+  const [disconnected, setDisconnected] = useState(false);
+  const [error, setError] = useState("");
   const [title, setTitle] = useState("");
 
   useEffect(() => {
@@ -33,13 +43,18 @@ export default function PresenterView() {
           setTitle(data.title);
         }
       })
-      .catch(console.error);
+      .catch(() => setError("Failed to load presentation data"));
 
     socket.connect();
 
     socket.on("connect", () => {
       setConnected(true);
+      setDisconnected(false);
       socket.emit("presenter:join", { roomCode, token });
+    });
+
+    socket.on("disconnect", () => {
+      setDisconnected(true);
     });
 
     socket.on("session:results", ({ counts, participantCount, totalResponses, avgResponsesPerPerson }: {
@@ -54,11 +69,13 @@ export default function PresenterView() {
     });
 
     socket.on("session:error", ({ message }: { message: string }) => {
-      console.error("Session error:", message);
+      setError(message);
+      setTimeout(() => setError(""), 4000);
     });
 
     return () => {
       socket.off("connect");
+      socket.off("disconnect");
       socket.off("session:results");
       socket.off("session:error");
       socket.disconnect();
@@ -76,6 +93,7 @@ export default function PresenterView() {
   };
 
   const endSession = () => {
+    if (!window.confirm("End this session? All participants will be disconnected.")) return;
     socket.emit("presenter:end", {});
     navigate("/dashboard");
   };
@@ -90,16 +108,38 @@ export default function PresenterView() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-        <div>
-          <h1 className="text-xl font-bold">{title}</h1>
-          <p className="text-gray-400 text-sm">
-            Room: <span className="font-mono font-bold text-blue-400">{roomCode}</span>
-          </p>
+      {/* Connection/error banners */}
+      {disconnected && (
+        <div className="bg-yellow-500 text-yellow-900 text-center py-2 px-4 text-sm font-medium">
+          Connection lost — reconnecting...
         </div>
-        <div className="flex gap-3">
-          <span className="text-gray-400 text-sm self-center">
+      )}
+      {error && (
+        <div className="bg-red-600 text-white text-center py-2 px-4 text-sm font-medium">
+          {error}
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-700">
+        <div className="flex items-center gap-4">
+          {currentIndex >= 0 && (
+            <div className="bg-white p-1 rounded">
+              <QRCodeSVG value={getJoinUrl(roomCode!)} size={40} level="L" />
+            </div>
+          )}
+          <div>
+            <h1 className="text-xl font-bold">{title}</h1>
+            <p className="text-gray-400 text-sm">
+              Join: <span className="font-mono font-bold text-blue-400">{roomCode}</span>
+              {currentIndex >= 0 && (
+                <span className="ml-2 text-gray-500">({getJoinUrl(roomCode!)})</span>
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 items-center">
+          <span className="text-gray-400 text-sm">
             {currentIndex >= 0
               ? `${currentIndex + 1} / ${questions.length}`
               : `${questions.length} questions`}
@@ -116,17 +156,37 @@ export default function PresenterView() {
       {/* Main content */}
       <div className="flex-1 flex flex-col items-center justify-center p-8">
         {currentIndex < 0 ? (
-          <div className="text-center">
-            <h2 className="text-3xl font-bold mb-4">Ready to start?</h2>
-            <p className="text-gray-400 mb-8">
-              {questions.length} question{questions.length !== 1 ? "s" : ""} loaded
+          <div className="text-center max-w-2xl mx-auto">
+            <h2 className="text-4xl font-bold mb-2">Join at</h2>
+            <p className="text-2xl text-blue-400 font-mono mb-6 select-all">
+              {getJoinUrl(roomCode!)}
             </p>
+
+            <div className="flex items-center justify-center gap-12 mb-8">
+              <div className="bg-white p-4 rounded-2xl">
+                <QRCodeSVG
+                  value={getJoinUrl(roomCode!)}
+                  size={200}
+                  level="M"
+                />
+              </div>
+              <div className="text-left">
+                <p className="text-gray-400 text-sm mb-1">Room code</p>
+                <p className="text-6xl font-mono font-bold text-blue-400 tracking-wider">
+                  {roomCode}
+                </p>
+                <p className="text-gray-500 text-sm mt-4">
+                  {questions.length} question{questions.length !== 1 ? "s" : ""} loaded
+                </p>
+              </div>
+            </div>
+
             <button
               onClick={() => goToQuestion(0)}
               disabled={questions.length === 0}
               className="px-8 py-4 bg-blue-600 text-white text-lg font-medium rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
             >
-              Show First Question
+              Start Presentation
             </button>
           </div>
         ) : currentQuestion ? (

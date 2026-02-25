@@ -65,6 +65,7 @@ export default function Dashboard() {
   };
 
   const deletePresentation = async (id: number) => {
+    if (!window.confirm("Delete this presentation and all its questions? This cannot be undone.")) return;
     await fetch(`${API_URL}/api/presentations/${id}`, {
       method: "DELETE",
       headers,
@@ -166,6 +167,7 @@ export default function Dashboard() {
   };
 
   const deleteQuestion = async (qId: number) => {
+    if (!window.confirm("Delete this question?")) return;
     await fetch(`${API_URL}/api/questions/${qId}`, {
       method: "DELETE",
       headers,
