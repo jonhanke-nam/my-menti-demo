@@ -28,7 +28,7 @@ async function seed() {
   // --- Presentation 1: AI & Tech Poll ---
   const pres1Result = db.insert(presentations).values({
     userId,
-    title: "AI & Tech Poll",
+    title: "Demo AI Poll",
     roomCode: "DEMO01",
     isActive: 1,
   }).run();
@@ -58,9 +58,9 @@ async function seed() {
     },
     {
       presentationId: pres1Id,
-      type: "multiple_choice",
-      prompt: "Which programming language do you use most?",
-      options: JSON.stringify(["TypeScript", "Python", "Rust", "Go", "Other"]),
+      type: "word_cloud",
+      prompt: "What feature(s) would you most like to see in my-menti-demo?",
+      options: null,
       orderIndex: 2,
     },
     {
@@ -72,12 +72,12 @@ async function seed() {
     },
   ]).run();
 
-  console.log(`Created presentation: "AI & Tech Poll" (room code: DEMO01)`);
+  console.log(`Created presentation: "Demo AI Poll" (room code: DEMO01)`);
 
   // --- Presentation 2: Team Icebreaker ---
   const pres2Result = db.insert(presentations).values({
     userId,
-    title: "Team Icebreaker",
+    title: "Demo Team Icebreaker",
     roomCode: "DEMO02",
     isActive: 1,
   }).run();
@@ -107,7 +107,7 @@ async function seed() {
     },
   ]).run();
 
-  console.log(`Created presentation: "Team Icebreaker" (room code: DEMO02)`);
+  console.log(`Created presentation: "Demo Team Icebreaker" (room code: DEMO02)`);
 
   console.log("\nSeed complete! Demo credentials:");
   console.log(`  Email:    ${DEMO_EMAIL}`);
