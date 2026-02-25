@@ -38,8 +38,8 @@ app.use("/api/questions", questionsRouter);
 
 // Public join route (no auth required)
 import { db } from "./db/client";
-import { presentations, questions } from "./db/schema";
-import { eq, and } from "drizzle-orm";
+import { presentations, questions, sessions } from "./db/schema";
+import { eq, and, isNull } from "drizzle-orm";
 
 app.get("/api/join/:roomCode", (req, res) => {
   try {
@@ -62,10 +62,24 @@ app.get("/api/join/:roomCode", (req, res) => {
       .orderBy(questions.orderIndex)
       .all();
 
+    // Look up the active session for this room
+    const activeSession = db
+      .select()
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.presentationId, presentation.id),
+          eq(sessions.roomCode, roomCode),
+          isNull(sessions.endedAt)
+        )
+      )
+      .get();
+
     res.json({
       presentationId: presentation.id,
       title: presentation.title,
       roomCode: presentation.roomCode,
+      sessionId: activeSession?.id ?? null,
       questions: questionList,
     });
   } catch (error) {

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "../db/client";
-import { presentations, questions, responses } from "../db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { presentations, questions, responses, sessions } from "../db/schema";
+import { eq, and, sql, isNull } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import crypto from "crypto";
 
@@ -102,9 +102,11 @@ presentationsRouter.get("/:id", (req: AuthRequest, res) => {
 });
 
 // GET /api/presentations/:id/results — get all questions with aggregated results
+// Accepts optional ?sessionId= to filter by session
 presentationsRouter.get("/:id/results", (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id);
+    const sessionId = req.query.sessionId ? parseInt(req.query.sessionId as string) : null;
 
     const presentation = db
       .select()
@@ -133,6 +135,12 @@ presentationsRouter.get("/:id/results", (req: AuthRequest, res) => {
     let totalResponses = 0;
 
     const questionsWithResults = questionRows.map((q) => {
+      // Build WHERE conditions
+      const conditions = [eq(responses.questionId, q.id)];
+      if (sessionId !== null) {
+        conditions.push(eq(responses.sessionId, sessionId));
+      }
+
       // Aggregate vote counts
       const countRows = db
         .select({
@@ -140,7 +148,7 @@ presentationsRouter.get("/:id/results", (req: AuthRequest, res) => {
           count: sql<number>`count(*)`,
         })
         .from(responses)
-        .where(eq(responses.questionId, q.id))
+        .where(and(...conditions))
         .groupBy(responses.value)
         .all();
 
@@ -155,7 +163,7 @@ presentationsRouter.get("/:id/results", (req: AuthRequest, res) => {
       const participantRow = db
         .select({ count: sql<number>`count(distinct ${responses.participantId})` })
         .from(responses)
-        .where(eq(responses.questionId, q.id))
+        .where(and(...conditions))
         .get();
 
       const participantCount = participantRow?.count ?? 0;
@@ -175,11 +183,16 @@ presentationsRouter.get("/:id/results", (req: AuthRequest, res) => {
     });
 
     // Overall distinct participants across all questions in this presentation
+    const overallConditions = [eq(questions.presentationId, id)];
+    if (sessionId !== null) {
+      overallConditions.push(eq(responses.sessionId, sessionId) as any);
+    }
+
     const overallParticipants = db
       .select({ count: sql<number>`count(distinct ${responses.participantId})` })
       .from(responses)
       .innerJoin(questions, eq(responses.questionId, questions.id))
-      .where(eq(questions.presentationId, id))
+      .where(and(...overallConditions))
       .get();
 
     totalParticipants = overallParticipants?.count ?? 0;
@@ -193,6 +206,50 @@ presentationsRouter.get("/:id/results", (req: AuthRequest, res) => {
     });
   } catch (error) {
     console.error("Get presentation results error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/presentations/:id/sessions — list sessions for a presentation
+presentationsRouter.get("/:id/sessions", (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    const presentation = db
+      .select()
+      .from(presentations)
+      .where(
+        and(
+          eq(presentations.id, id),
+          eq(presentations.userId, req.user!.userId)
+        )
+      )
+      .get();
+
+    if (!presentation) {
+      res.status(404).json({ error: "Presentation not found" });
+      return;
+    }
+
+    const sessionRows = db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.presentationId, id))
+      .orderBy(sql`${sessions.startedAt} DESC`)
+      .all();
+
+    const sessionsWithCounts = sessionRows.map((s) => {
+      const countRow = db
+        .select({ count: sql<number>`count(*)` })
+        .from(responses)
+        .where(eq(responses.sessionId, s.id))
+        .get();
+      return { ...s, responseCount: countRow?.count ?? 0 };
+    });
+
+    res.json(sessionsWithCounts);
+  } catch (error) {
+    console.error("List sessions error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -270,8 +327,27 @@ presentationsRouter.post("/:id/activate", (req: AuthRequest, res) => {
       .where(eq(presentations.id, id))
       .run();
 
+    // Close any open sessions for this presentation
+    const now = Math.floor(Date.now() / 1000);
+    db.update(sessions)
+      .set({ endedAt: now })
+      .where(
+        and(
+          eq(sessions.presentationId, id),
+          isNull(sessions.endedAt)
+        )
+      )
+      .run();
+
+    // Create a new session
+    const sessionResult = db
+      .insert(sessions)
+      .values({ presentationId: id, roomCode })
+      .run();
+    const sessionId = Number(sessionResult.lastInsertRowid);
+
     const updated = db.select().from(presentations).where(eq(presentations.id, id)).get();
-    res.json(updated);
+    res.json({ ...updated, sessionId });
   } catch (error) {
     console.error("Activate presentation error:", error);
     res.status(500).json({ error: "Internal server error" });

@@ -7,6 +7,15 @@ import OpenText from "../components/slides/OpenText";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
+interface Session {
+  id: number;
+  presentationId: number;
+  roomCode: string;
+  startedAt: number;
+  endedAt: number | null;
+  responseCount: number;
+}
+
 interface QuestionResult {
   id: number;
   type: "multiple_choice" | "word_cloud" | "open_text";
@@ -33,14 +42,30 @@ export default function ResultsView() {
   const [data, setData] = useState<PresentationResults | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string>("all");
 
+  // Fetch sessions list
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_URL}/api/presentations/${id}/sessions`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.ok ? r.json() : [])
+      .then((s) => setSessions(s))
+      .catch(() => {});
+  }, [id, token]);
+
+  // Fetch results (re-fetches when session selection changes)
   useEffect(() => {
     if (!token) {
       navigate("/");
       return;
     }
 
-    fetch(`${API_URL}/api/presentations/${id}/results`, {
+    setLoading(true);
+    const params = selectedSessionId !== "all" ? `?sessionId=${selectedSessionId}` : "";
+    fetch(`${API_URL}/api/presentations/${id}/results${params}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => {
@@ -50,7 +75,7 @@ export default function ResultsView() {
       .then((d) => setData(d))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [id, token, navigate]);
+  }, [id, token, navigate, selectedSessionId]);
 
   if (loading) {
     return (
@@ -83,6 +108,29 @@ export default function ResultsView() {
         <div>
           <h1 className="text-xl font-bold text-gray-800">{data.title}</h1>
           <p className="text-gray-500 text-sm">Session Results</p>
+          {sessions.length > 0 && (
+            <select
+              value={selectedSessionId}
+              onChange={(e) => setSelectedSessionId(e.target.value)}
+              className="mt-2 text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All sessions ({sessions.reduce((s, sess) => s + sess.responseCount, 0)} responses)</option>
+              {sessions.map((s, i) => {
+                const date = new Date(s.startedAt * 1000);
+                const label = date.toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                return (
+                  <option key={s.id} value={s.id}>
+                    Session {sessions.length - i}: {label} ({s.roomCode}) — {s.responseCount} response{s.responseCount !== 1 ? "s" : ""}{s.endedAt === null ? " (live)" : ""}
+                  </option>
+                );
+              })}
+            </select>
+          )}
         </div>
         <button
           onClick={() => navigate("/dashboard")}

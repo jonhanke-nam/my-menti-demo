@@ -34,12 +34,27 @@ export const questions = sqliteTable("questions", {
   orderIndex: integer("order_index").notNull().default(0),
 });
 
+export const sessions = sqliteTable("sessions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  presentationId: integer("presentation_id")
+    .notNull()
+    .references(() => presentations.id, { onDelete: "cascade" }),
+  roomCode: text("room_code").notNull(),
+  startedAt: integer("started_at")
+    .notNull()
+    .$defaultFn(() => Math.floor(Date.now() / 1000)),
+  endedAt: integer("ended_at"),
+});
+
 export const responses = sqliteTable("responses", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   questionId: integer("question_id")
     .notNull()
     .references(() => questions.id, { onDelete: "cascade" }),
   participantId: text("participant_id").notNull(),
+  sessionId: integer("session_id").references(() => sessions.id, {
+    onDelete: "cascade",
+  }),
   value: text("value").notNull(),
   createdAt: integer("created_at")
     .notNull()

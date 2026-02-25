@@ -1,14 +1,16 @@
 import { Server, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import { db } from "../db/client";
-import { presentations, questions, responses } from "../db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { presentations, questions, responses, sessions } from "../db/schema";
+import { eq, and, sql, isNull } from "drizzle-orm";
 import { AuthPayload } from "../middleware/auth";
 
 const JWT_SECRET = process.env.JWT_SECRET || "local_dev_secret";
 
 // Track which question is currently active per room
 const activeQuestions = new Map<string, number>();
+// Track which session is active per room (roomCode → sessionId)
+const activeSessions = new Map<string, number>();
 
 interface ResultsPayload {
   counts: Record<string, number>;
@@ -17,14 +19,19 @@ interface ResultsPayload {
   avgResponsesPerPerson: number;
 }
 
-function getAggregatedResults(questionId: number): ResultsPayload {
+function getAggregatedResults(questionId: number, sessionId?: number): ResultsPayload {
+  const conditions = [eq(responses.questionId, questionId)];
+  if (sessionId !== undefined) {
+    conditions.push(eq(responses.sessionId, sessionId));
+  }
+
   const rows = db
     .select({
       value: responses.value,
       count: sql<number>`count(*)`,
     })
     .from(responses)
-    .where(eq(responses.questionId, questionId))
+    .where(and(...conditions))
     .groupBy(responses.value)
     .all();
 
@@ -41,7 +48,7 @@ function getAggregatedResults(questionId: number): ResultsPayload {
       count: sql<number>`count(distinct ${responses.participantId})`,
     })
     .from(responses)
-    .where(eq(responses.questionId, questionId))
+    .where(and(...conditions))
     .get();
 
   const participantCount = participantRow?.count ?? 0;
@@ -81,7 +88,25 @@ export function setupSocketHandlers(io: Server): void {
         socket.join(roomCode);
         socket.data.role = "presenter";
         socket.data.roomCode = roomCode;
-        console.log(`Presenter ${payload.email} joined room ${roomCode}`);
+
+        // Look up the active session for this room
+        const session = db
+          .select()
+          .from(sessions)
+          .where(
+            and(
+              eq(sessions.presentationId, presentation.id),
+              eq(sessions.roomCode, roomCode),
+              isNull(sessions.endedAt)
+            )
+          )
+          .get();
+        if (session) {
+          socket.data.sessionId = session.id;
+          activeSessions.set(roomCode, session.id);
+        }
+
+        console.log(`Presenter ${payload.email} joined room ${roomCode} (session=${session?.id})`);
       } catch {
         socket.emit("session:error", { message: "Invalid token" });
       }
@@ -103,7 +128,28 @@ export function setupSocketHandlers(io: Server): void {
       socket.join(roomCode);
       socket.data.role = "participant";
       socket.data.roomCode = roomCode;
-      console.log(`Participant ${socket.id} joined room ${roomCode}`);
+
+      // Read sessionId from activeSessions map, or fall back to DB lookup
+      let sessionId = activeSessions.get(roomCode);
+      if (sessionId === undefined) {
+        const session = db
+          .select()
+          .from(sessions)
+          .where(
+            and(
+              eq(sessions.presentationId, presentation.id),
+              eq(sessions.roomCode, roomCode),
+              isNull(sessions.endedAt)
+            )
+          )
+          .get();
+        if (session) {
+          sessionId = session.id;
+          activeSessions.set(roomCode, session.id);
+        }
+      }
+      socket.data.sessionId = sessionId;
+      console.log(`Participant ${socket.id} joined room ${roomCode} (session=${sessionId})`);
 
       // Send current active question if there is one
       const activeQuestionId = activeQuestions.get(roomCode);
@@ -137,8 +183,9 @@ export function setupSocketHandlers(io: Server): void {
       activeQuestions.set(roomCode, questionId);
       io.to(roomCode).emit("session:question", { question });
 
-      // Also send current results
-      const results = getAggregatedResults(questionId);
+      // Also send current results (filtered to current session)
+      const sessionId = activeSessions.get(roomCode);
+      const results = getAggregatedResults(questionId, sessionId);
       io.to(roomCode).emit("session:results", { questionId, ...results });
     });
 
@@ -159,12 +206,13 @@ export function setupSocketHandlers(io: Server): void {
         }
 
         // Always insert (allow multiple submissions per participant)
+        const sessionId = socket.data.sessionId ?? null;
         db.insert(responses)
-          .values({ questionId, participantId, value })
+          .values({ questionId, participantId, value, sessionId })
           .run();
 
-        // Broadcast updated results to room
-        const results = getAggregatedResults(questionId);
+        // Broadcast updated results to room (filtered to current session)
+        const results = getAggregatedResults(questionId, sessionId ?? undefined);
         io.to(roomCode).emit("session:results", { questionId, ...results });
       }
     );
@@ -177,6 +225,16 @@ export function setupSocketHandlers(io: Server): void {
         return;
       }
 
+      // Close the active session
+      const sessionId = activeSessions.get(roomCode);
+      if (sessionId) {
+        const now = Math.floor(Date.now() / 1000);
+        db.update(sessions)
+          .set({ endedAt: now })
+          .where(eq(sessions.id, sessionId))
+          .run();
+      }
+
       // Deactivate the presentation
       db.update(presentations)
         .set({ isActive: 0 })
@@ -184,8 +242,9 @@ export function setupSocketHandlers(io: Server): void {
         .run();
 
       activeQuestions.delete(roomCode);
+      activeSessions.delete(roomCode);
       io.to(roomCode).emit("session:ended", {});
-      console.log(`Session ended for room ${roomCode}`);
+      console.log(`Session ended for room ${roomCode} (session=${sessionId})`);
     });
 
     socket.on("disconnect", () => {

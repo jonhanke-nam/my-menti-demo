@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { db } from "./client";
-import { users, presentations, questions } from "./schema";
+import { users, presentations, questions, sessions } from "./schema";
 import { eq, and } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
@@ -165,6 +165,27 @@ async function seed() {
       }
     }
     console.log(`  → ${demoPres.questions.length} questions synced`);
+
+    // Upsert a session row for the demo presentation
+    const existingSession = db
+      .select()
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.presentationId, presId),
+          eq(sessions.roomCode, demoPres.roomCode)
+        )
+      )
+      .get();
+
+    if (!existingSession) {
+      db.insert(sessions)
+        .values({ presentationId: presId, roomCode: demoPres.roomCode })
+        .run();
+      console.log(`  → Created session for ${demoPres.roomCode}`);
+    } else {
+      console.log(`  → Session already exists for ${demoPres.roomCode}`);
+    }
   }
 
   console.log("\nSeed complete! Demo credentials:");
