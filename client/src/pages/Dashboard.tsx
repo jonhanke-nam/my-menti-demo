@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [newTitle, setNewTitle] = useState("");
   const [editingPres, setEditingPres] = useState<Presentation | null>(null);
   const [showQuestionForm, setShowQuestionForm] = useState<number | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<number | null>(null);
   const [questionForm, setQuestionForm] = useState({
     type: "multiple_choice" as Question["type"],
     prompt: "",
@@ -119,6 +120,51 @@ export default function Dashboard() {
     }
   };
 
+  const startEditingQuestion = (q: Question) => {
+    setEditingQuestion(q.id);
+    setShowQuestionForm(null);
+    const parsedOptions: string[] = q.options ? JSON.parse(q.options) : ["", ""];
+    setQuestionForm({
+      type: q.type,
+      prompt: q.prompt,
+      options: parsedOptions.length >= 2 ? parsedOptions : [...parsedOptions, ...Array(2 - parsedOptions.length).fill("")],
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingQuestion(null);
+    setQuestionForm({ type: "multiple_choice", prompt: "", options: ["", ""] });
+  };
+
+  const saveQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingQuestion || !questionForm.prompt.trim()) return;
+
+    const body: Record<string, unknown> = {
+      type: questionForm.type,
+      prompt: questionForm.prompt.trim(),
+    };
+
+    if (questionForm.type === "multiple_choice") {
+      const validOptions = questionForm.options.filter((o) => o.trim());
+      if (validOptions.length < 2) return;
+      body.options = validOptions;
+    } else {
+      body.options = null;
+    }
+
+    const res = await fetch(`${API_URL}/api/questions/${editingQuestion}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (res.ok) {
+      cancelEditing();
+      if (editingPres) loadQuestions(editingPres.id);
+    }
+  };
+
   const deleteQuestion = async (qId: number) => {
     await fetch(`${API_URL}/api/questions/${qId}`, {
       method: "DELETE",
@@ -223,27 +269,136 @@ export default function Dashboard() {
                     <h4 className="font-medium text-gray-700 mb-3">Questions</h4>
 
                     {editingPres.questions && editingPres.questions.length > 0 ? (
-                      <div className="space-y-2 mb-4">
+                      <div className="space-y-3 mb-4">
                         {editingPres.questions.map((q, i) => (
-                          <div
-                            key={q.id}
-                            className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2"
-                          >
-                            <div>
-                              <span className="text-gray-400 text-sm mr-2">
-                                {i + 1}.
-                              </span>
-                              <span className="text-gray-700">{q.prompt}</span>
-                              <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                                {q.type.replace("_", " ")}
-                              </span>
-                            </div>
-                            <button
-                              onClick={() => deleteQuestion(q.id)}
-                              className="text-red-400 hover:text-red-600 text-sm"
-                            >
-                              Remove
-                            </button>
+                          <div key={q.id}>
+                            {editingQuestion === q.id ? (
+                              /* Inline edit form */
+                              <form onSubmit={saveQuestion} className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-sm font-medium text-blue-700">Editing question {i + 1}</span>
+                                </div>
+                                <select
+                                  value={questionForm.type}
+                                  onChange={(e) =>
+                                    setQuestionForm({
+                                      ...questionForm,
+                                      type: e.target.value as Question["type"],
+                                    })
+                                  }
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none"
+                                >
+                                  <option value="multiple_choice">Multiple Choice</option>
+                                  <option value="word_cloud">Word Cloud</option>
+                                  <option value="open_text">Open Text</option>
+                                </select>
+
+                                <input
+                                  type="text"
+                                  value={questionForm.prompt}
+                                  onChange={(e) =>
+                                    setQuestionForm({ ...questionForm, prompt: e.target.value })
+                                  }
+                                  placeholder="Question prompt..."
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none"
+                                  autoFocus
+                                />
+
+                                {questionForm.type === "multiple_choice" && (
+                                  <div className="space-y-2">
+                                    {questionForm.options.map((opt, optIdx) => (
+                                      <div key={optIdx} className="flex gap-2">
+                                        <input
+                                          type="text"
+                                          value={opt}
+                                          onChange={(e) => {
+                                            const opts = [...questionForm.options];
+                                            opts[optIdx] = e.target.value;
+                                            setQuestionForm({ ...questionForm, options: opts });
+                                          }}
+                                          placeholder={`Option ${optIdx + 1}`}
+                                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg outline-none"
+                                        />
+                                        {questionForm.options.length > 2 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const opts = questionForm.options.filter((_, idx) => idx !== optIdx);
+                                              setQuestionForm({ ...questionForm, options: opts });
+                                            }}
+                                            className="text-red-400 hover:text-red-600 text-sm px-2"
+                                          >
+                                            X
+                                          </button>
+                                        )}
+                                      </div>
+                                    ))}
+                                    {questionForm.options.length < 4 && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setQuestionForm({
+                                            ...questionForm,
+                                            options: [...questionForm.options, ""],
+                                          })
+                                        }
+                                        className="text-blue-600 text-sm hover:text-blue-700"
+                                      >
+                                        + Add option
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+
+                                <div className="flex gap-2">
+                                  <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditing}
+                                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </form>
+                            ) : (
+                              /* Read-only question row */
+                              <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2">
+                                <div>
+                                  <span className="text-gray-400 text-sm mr-2">
+                                    {i + 1}.
+                                  </span>
+                                  <span className="text-gray-700">{q.prompt}</span>
+                                  <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                                    {q.type.replace("_", " ")}
+                                  </span>
+                                  {q.type === "multiple_choice" && q.options && (
+                                    <span className="ml-2 text-xs text-gray-400">
+                                      ({JSON.parse(q.options).join(", ")})
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => startEditingQuestion(q)}
+                                    className="text-blue-500 hover:text-blue-700 text-sm"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => deleteQuestion(q.id)}
+                                    className="text-red-400 hover:text-red-600 text-sm"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
