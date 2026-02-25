@@ -305,8 +305,11 @@ Every Claude Code session MUST be logged in the `conversations/` folder for full
    - `conversations/YYYY-MM-DD_HH-MM-SS_summary.md` — concise summary log
    - `conversations/YYYY-MM-DD_HH-MM-SS_detailed.md` — detailed verbatim log
 2. **After every interaction** (each user message + Claude response pair), **append** to BOTH files immediately. Do not wait until the end of the session.
-3. **This is a BLOCKING requirement** — update both log files before moving on to other work after each response.
+3. **This is a BLOCKING requirement** — update both log files before moving on to other work after each response. Do NOT batch multiple interactions together. Do NOT skip logging because you are busy with implementation. Logging comes first.
 4. **Never skip an interaction** — both logs must be complete, continuous records of everything that happened in the session.
+5. **Verbatim means verbatim** — the detailed log must contain the user's actual words and Claude's actual response text. Do not paraphrase or summarize in the detailed log. If the response is very long, include the full text — do not shorten it.
+6. **Order of operations** — After receiving a user message: (a) do the work, (b) immediately append to both log files, (c) only then move on. Never let log updates fall behind.
+7. **If logging was missed** — acknowledge the lapse in the log file with a note, reconstruct as best as possible with a disclaimer, and resume verbatim logging immediately. Honesty about gaps is better than fabricated entries.
 
 ### Summary Log Format (`_summary.md`)
 
@@ -323,12 +326,13 @@ A near-verbatim record that lets a reader fully understand the conversation. Eac
 - Separator line (`---`)
 - Timestamp heading (`## [YYYY-MM-DD HH:MM:SS]`)
 - **User:** The user's full, actual message (quoted verbatim)
-- **Claude:** Claude's full response text as displayed to the user
+- **Claude:** Claude's full response text as displayed to the user. Include the complete text — this is the audit trail.
 - **Tool Calls:** For each tool used, include:
   - The tool name and what it was called with (command, file path, etc.)
   - The key output or result (truncate very long outputs but keep enough to understand what happened)
   - Any errors encountered
 - Keep this authentic — a reader should be able to follow the entire session as if they were watching over our shoulders.
+- The purpose of this file is **transparency and reproducibility**. Anyone reading it should understand exactly what happened, what was said, and what decisions were made.
 
 ### Folder structure
 
