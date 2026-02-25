@@ -2,8 +2,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { db } from "./client";
-import { users, presentations, questions, sessions } from "./schema";
-import { eq, and } from "drizzle-orm";
+import { users, presentations, questions, sessions, responses } from "./schema";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 const DEMO_EMAIL = "demo@menti-clone.local";
@@ -186,6 +186,63 @@ async function seed() {
     } else {
       console.log(`  → Session already exists for ${demoPres.roomCode}`);
     }
+  }
+
+  // --- Backfill orphaned responses (session_id IS NULL) ---
+  const orphanedPresentations = db
+    .select({
+      presentationId: questions.presentationId,
+      count: sql<number>`count(*)`,
+    })
+    .from(responses)
+    .innerJoin(questions, eq(responses.questionId, questions.id))
+    .where(isNull(responses.sessionId))
+    .groupBy(questions.presentationId)
+    .all();
+
+  for (const { presentationId, count } of orphanedPresentations) {
+    // Find the earliest session for this presentation, or create one
+    let session = db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.presentationId, presentationId))
+      .orderBy(sessions.startedAt)
+      .get();
+
+    if (!session) {
+      const pres = db
+        .select()
+        .from(presentations)
+        .where(eq(presentations.id, presentationId))
+        .get();
+      const result = db
+        .insert(sessions)
+        .values({
+          presentationId,
+          roomCode: pres?.roomCode ?? "LEGACY",
+          endedAt: Math.floor(Date.now() / 1000),
+        })
+        .run();
+      session = db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.id, Number(result.lastInsertRowid)))
+        .get()!;
+      console.log(`Created legacy session (id=${session.id}) for presentation ${presentationId}`);
+    }
+
+    // Assign orphaned responses to this session
+    const questionIds = db
+      .select({ id: questions.id })
+      .from(questions)
+      .where(eq(questions.presentationId, presentationId))
+      .all()
+      .map((q) => q.id);
+
+    db.run(
+      sql`UPDATE responses SET session_id = ${session.id} WHERE session_id IS NULL AND question_id IN (${sql.join(questionIds.map(id => sql`${id}`), sql`, `)})`
+    );
+    console.log(`Backfilled ${count} orphaned responses → session ${session.id} (presentation ${presentationId})`);
   }
 
   console.log("\nSeed complete! Demo credentials:");
