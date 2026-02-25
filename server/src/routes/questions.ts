@@ -65,7 +65,7 @@ questionsRouter.post("/", requireAuth as any, (req: AuthRequest, res) => {
 // PUT /api/questions/:id — update a question
 questionsRouter.put("/:id", requireAuth as any, (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     const { type, prompt, options, orderIndex } = req.body;
 
     // Verify ownership through presentation
@@ -110,7 +110,7 @@ questionsRouter.put("/:id", requireAuth as any, (req: AuthRequest, res) => {
 // DELETE /api/questions/:id
 questionsRouter.delete("/:id", requireAuth as any, (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
 
     const question = db.select().from(questions).where(eq(questions.id, id)).get();
     if (!question) {
@@ -145,7 +145,7 @@ questionsRouter.delete("/:id", requireAuth as any, (req: AuthRequest, res) => {
 // GET /api/questions/:id/results — get aggregated results
 questionsRouter.get("/:id/results", requireAuth as any, (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
 
     const question = db.select().from(questions).where(eq(questions.id, id)).get();
     if (!question) {

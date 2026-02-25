@@ -47,14 +47,14 @@ Expand the variety of interactive question formats.
 Move beyond localhost-only so the app can be used over the internet.
 
 ### Option A: Simple VPS Deployment
-- [ ] **Production build pipeline** — Single command to build client + server for production
-- [ ] **Single-process server** — Express serves the built React app + API + Socket.io from one port
-- [ ] **Environment-based config** — Clean separation of dev/staging/production settings
+- [x] **Production build pipeline** — `npm run build` builds client + server; `npm start` runs everything _(completed 2026-02-25)_
+- [x] **Single-process server** — Express serves the built React app + API + Socket.io from port 4000 _(completed 2026-02-25)_
+- [x] **Environment-based config** — Conditional CORS, DATABASE_PATH env var, same-origin socket fallback _(completed 2026-02-25)_
 - [ ] **Process manager** — PM2 or systemd for auto-restart and log management
 
 ### Option B: Cloud Platform Deployment
-- [ ] **Docker containerization** — Dockerfile + docker-compose for reproducible deploys
-- [ ] **Railway / Render / Fly.io deploy** — One-click or CLI deploy to a cloud platform
+- [ ] **Docker containerization** — Dockerfile + docker-compose for reproducible deploys (plan ready, not yet implemented)
+- [ ] **Railway / Render / Fly.io deploy** — fly.toml config planned, not yet implemented
 - [ ] **SQLite → PostgreSQL migration path** — Drizzle makes this straightforward; needed for cloud platforms with ephemeral filesystems
 - [ ] **Managed WebSocket support** — Ensure Socket.io works behind cloud load balancers (sticky sessions or Redis adapter)
 
@@ -68,7 +68,7 @@ Move beyond localhost-only so the app can be used over the internet.
 ### DNS & Access
 - [ ] **Custom domain support** — Point a domain to the deployed instance
 - [ ] **Shareable join links** — `https://yourdomain.com/join?code=ABC123` works from anywhere
-- [ ] **Ngrok / Cloudflare Tunnel** — Quick tunnel option for demos without full deployment
+- [x] **Ngrok / Cloudflare Tunnel** — Works now with `npm run build && npm start && ngrok http 4000` _(ready 2026-02-25)_
 
 ---
 
@@ -78,7 +78,7 @@ Move beyond localhost-only so the app can be used over the internet.
 - [ ] **CI pipeline** — GitHub Actions for lint + test on PR
 - [ ] **Error pages** — Proper 404, session expired, and network error pages
 - [ ] **Logging** — Structured server logs (pino or winston)
-- [ ] **Health check endpoint** — `/api/health` for uptime monitoring
+- [x] **Health check endpoint** — `/api/health` already exists _(completed previously)_
 
 ---
 

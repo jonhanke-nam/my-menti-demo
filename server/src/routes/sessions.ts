@@ -76,7 +76,7 @@ presentationsRouter.get("/:id", (req: AuthRequest, res) => {
       .from(presentations)
       .where(
         and(
-          eq(presentations.id, parseInt(req.params.id)),
+          eq(presentations.id, parseInt(req.params.id as string)),
           eq(presentations.userId, req.user!.userId)
         )
       )
@@ -105,7 +105,7 @@ presentationsRouter.get("/:id", (req: AuthRequest, res) => {
 // Accepts optional ?sessionId= to filter by session
 presentationsRouter.get("/:id/results", (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     const sessionId = req.query.sessionId ? parseInt(req.query.sessionId as string) : null;
 
     const presentation = db
@@ -213,7 +213,7 @@ presentationsRouter.get("/:id/results", (req: AuthRequest, res) => {
 // GET /api/presentations/:id/sessions — list sessions for a presentation
 presentationsRouter.get("/:id/sessions", (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
 
     const presentation = db
       .select()
@@ -258,7 +258,7 @@ presentationsRouter.get("/:id/sessions", (req: AuthRequest, res) => {
 presentationsRouter.put("/:id", (req: AuthRequest, res) => {
   try {
     const { title } = req.body;
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
 
     const existing = db
       .select()
@@ -284,7 +284,7 @@ presentationsRouter.put("/:id", (req: AuthRequest, res) => {
 // DELETE /api/presentations/:id
 presentationsRouter.delete("/:id", (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
 
     const existing = db
       .select()
@@ -308,7 +308,7 @@ presentationsRouter.delete("/:id", (req: AuthRequest, res) => {
 // POST /api/presentations/:id/activate — generate room code, mark active
 presentationsRouter.post("/:id/activate", (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
 
     const existing = db
       .select()

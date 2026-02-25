@@ -5,6 +5,8 @@ import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
+import path from "path";
+import fs from "fs";
 import { authRouter } from "./routes/auth";
 import { presentationsRouter } from "./routes/sessions";
 import { questionsRouter } from "./routes/questions";
@@ -13,17 +15,21 @@ import { setupSocketHandlers } from "./sockets";
 const app = express();
 const httpServer = createServer(app);
 
-const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:3000";
+const clientOrigin = process.env.CLIENT_ORIGIN;
 
 const io = new Server(httpServer, {
-  cors: {
-    origin: clientOrigin,
-    methods: ["GET", "POST"],
-  },
+  ...(clientOrigin && {
+    cors: {
+      origin: clientOrigin,
+      methods: ["GET", "POST"],
+    },
+  }),
 });
 
-// Middleware
-app.use(cors({ origin: clientOrigin }));
+// Middleware — only enable CORS when running with a separate client origin (dev mode)
+if (clientOrigin) {
+  app.use(cors({ origin: clientOrigin }));
+}
 app.use(express.json());
 
 // Health check
@@ -90,6 +96,15 @@ app.get("/api/join/:roomCode", (req, res) => {
 
 // Socket.io
 setupSocketHandlers(io);
+
+// Serve client build in production (when client/dist/ exists)
+const clientDistPath = path.resolve(__dirname, "../../client/dist");
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(clientDistPath, "index.html"));
+  });
+}
 
 // Start server
 const PORT = parseInt(process.env.PORT || "4000", 10);
