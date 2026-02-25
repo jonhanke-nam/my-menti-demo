@@ -38,7 +38,7 @@ async function seed() {
     {
       presentationId: pres1Id,
       type: "word_cloud",
-      prompt: "What is your favorite AI tool?",
+      prompt: "What's your favorite AI tool?",
       options: null,
       orderIndex: 0,
     },
@@ -46,7 +46,14 @@ async function seed() {
       presentationId: pres1Id,
       type: "multiple_choice",
       prompt: "How do you feel about robot dogs?",
-      options: JSON.stringify(["Love them!", "They're cool", "A bit creepy", "No opinion"]),
+      options: JSON.stringify([
+        "❤️ Love them! Finally a dog that can walk itself.",
+        "🐶 Nope, I prefer the real thing",
+        "💻 I want one to debug my code",
+        "🎾 Wake me up when they can actually fetch",
+        "▶️ I love to watch their videos",
+        "🕺 They're weird, but have you seen them dance?"
+      ]),
       orderIndex: 1,
     },
     {
