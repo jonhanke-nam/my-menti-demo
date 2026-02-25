@@ -12,9 +12,10 @@
     "build:client": "npm run build --workspace=client",
     "build:server": "npm run build --workspace=server",
     "build": "npm run build:client && npm run build:server",
-    "start": "node server/dist/index.js",
+    "start": "cd server && node dist/index.js",
     "db:migrate": "npm run db:migrate --workspace=server",
-    "db:seed": "npm run db:seed --workspace=server"
+    "db:seed": "npm run db:seed --workspace=server",
+    "db:backup": "npm run db:backup --workspace=server"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

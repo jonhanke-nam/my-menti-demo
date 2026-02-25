@@ -1,6 +1,8 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+import fs from "fs";
+import path from "path";
 import { db } from "./client";
 import { users, presentations, questions, sessions, responses } from "./schema";
 import { eq, and, isNull, sql } from "drizzle-orm";
@@ -79,6 +81,16 @@ const DEMO_PRESENTATIONS = [
 ];
 
 async function seed() {
+  // Auto-backup before seeding
+  const dbPath = process.env.DATABASE_PATH || process.env.DATABASE_URL || "./dev.db";
+  const resolvedDb = path.resolve(dbPath);
+  if (fs.existsSync(resolvedDb)) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const backupPath = `${resolvedDb}.pre-seed.${timestamp}.bak`;
+    fs.copyFileSync(resolvedDb, backupPath);
+    console.log(`Backed up database to ${path.basename(backupPath)}`);
+  }
+
   console.log("Seeding database...\n");
 
   // --- Upsert demo user ---
