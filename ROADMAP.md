@@ -59,6 +59,7 @@ Move beyond localhost-only so the app can be used over the internet.
 - [ ] **Managed WebSocket support** — Ensure Socket.io works behind cloud load balancers (sticky sessions or Redis adapter)
 
 ### Networking & Security
+- [ ] **macOS firewall / LAN access** — Node.js blocked by macOS firewall for incoming LAN connections; needs firewall allow-rule or cloud deployment to bypass
 - [ ] **HTTPS / TLS** — SSL certificates (Let's Encrypt) for production
 - [ ] **Reverse proxy config** — Nginx or Caddy config for WebSocket proxying
 - [ ] **Rate limiting** — Protect auth routes and voting endpoints from abuse
