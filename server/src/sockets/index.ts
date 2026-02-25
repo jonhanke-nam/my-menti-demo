@@ -10,7 +10,14 @@ const JWT_SECRET = process.env.JWT_SECRET || "local_dev_secret";
 // Track which question is currently active per room
 const activeQuestions = new Map<string, number>();
 
-function getAggregatedResults(questionId: number): Record<string, number> {
+interface ResultsPayload {
+  counts: Record<string, number>;
+  participantCount: number;
+  totalResponses: number;
+  avgResponsesPerPerson: number;
+}
+
+function getAggregatedResults(questionId: number): ResultsPayload {
   const rows = db
     .select({
       value: responses.value,
@@ -22,10 +29,27 @@ function getAggregatedResults(questionId: number): Record<string, number> {
     .all();
 
   const counts: Record<string, number> = {};
+  let totalResponses = 0;
   for (const row of rows) {
     counts[row.value] = row.count;
+    totalResponses += row.count;
   }
-  return counts;
+
+  // Count distinct participants for this question
+  const participantRow = db
+    .select({
+      count: sql<number>`count(distinct ${responses.participantId})`,
+    })
+    .from(responses)
+    .where(eq(responses.questionId, questionId))
+    .get();
+
+  const participantCount = participantRow?.count ?? 0;
+  const avgResponsesPerPerson = participantCount > 0
+    ? Math.round((totalResponses / participantCount) * 10) / 10
+    : 0;
+
+  return { counts, participantCount, totalResponses, avgResponsesPerPerson };
 }
 
 export function setupSocketHandlers(io: Server): void {
@@ -114,8 +138,8 @@ export function setupSocketHandlers(io: Server): void {
       io.to(roomCode).emit("session:question", { question });
 
       // Also send current results
-      const counts = getAggregatedResults(questionId);
-      io.to(roomCode).emit("session:results", { questionId, counts });
+      const results = getAggregatedResults(questionId);
+      io.to(roomCode).emit("session:results", { questionId, ...results });
     });
 
     // Participant submits a vote
@@ -134,34 +158,14 @@ export function setupSocketHandlers(io: Server): void {
           return;
         }
 
-        // Check for existing vote (deduplicate by participantId per question)
-        const existing = db
-          .select()
-          .from(responses)
-          .where(
-            and(
-              eq(responses.questionId, questionId),
-              eq(responses.participantId, participantId)
-            )
-          )
-          .get();
-
-        if (existing) {
-          // Update existing vote
-          db.update(responses)
-            .set({ value })
-            .where(eq(responses.id, existing.id))
-            .run();
-        } else {
-          // Insert new vote
-          db.insert(responses)
-            .values({ questionId, participantId, value })
-            .run();
-        }
+        // Always insert (allow multiple submissions per participant)
+        db.insert(responses)
+          .values({ questionId, participantId, value })
+          .run();
 
         // Broadcast updated results to room
-        const counts = getAggregatedResults(questionId);
-        io.to(roomCode).emit("session:results", { questionId, counts });
+        const results = getAggregatedResults(questionId);
+        io.to(roomCode).emit("session:results", { questionId, ...results });
       }
     );
 

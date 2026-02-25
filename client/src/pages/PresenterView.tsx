@@ -12,7 +12,7 @@ const API_URL = import.meta.env.VITE_API_URL || "";
 export default function PresenterView() {
   const { roomCode } = useParams<{ roomCode: string }>();
   const navigate = useNavigate();
-  const { token, currentQuestion, setCurrentQuestion, results, setResults } =
+  const { token, currentQuestion, setCurrentQuestion, results, setResults, resultStats, setResultStats } =
     useSessionStore();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
@@ -42,8 +42,15 @@ export default function PresenterView() {
       socket.emit("presenter:join", { roomCode, token });
     });
 
-    socket.on("session:results", ({ counts }: { questionId: number; counts: Record<string, number> }) => {
+    socket.on("session:results", ({ counts, participantCount, totalResponses, avgResponsesPerPerson }: {
+      questionId: number;
+      counts: Record<string, number>;
+      participantCount: number;
+      totalResponses: number;
+      avgResponsesPerPerson: number;
+    }) => {
       setResults(counts);
+      setResultStats({ participantCount, totalResponses, avgResponsesPerPerson });
     });
 
     socket.on("session:error", ({ message }: { message: string }) => {
@@ -64,6 +71,7 @@ export default function PresenterView() {
     setCurrentIndex(index);
     setCurrentQuestion(q);
     setResults({});
+    setResultStats({ participantCount: 0, totalResponses: 0, avgResponsesPerPerson: 0 });
     socket.emit("presenter:next", { questionId: q.id });
   };
 
@@ -131,6 +139,24 @@ export default function PresenterView() {
             )}
             {currentQuestion.type === "open_text" && (
               <OpenText prompt={currentQuestion.prompt} counts={results} />
+            )}
+
+            {/* Stats bar */}
+            {resultStats.totalResponses > 0 && (
+              <div className="flex justify-center gap-8 mt-6 text-sm">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-400">{resultStats.participantCount}</div>
+                  <div className="text-gray-400">participant{resultStats.participantCount !== 1 ? "s" : ""}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-400">{resultStats.totalResponses}</div>
+                  <div className="text-gray-400">total responses</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-400">{resultStats.avgResponsesPerPerson}</div>
+                  <div className="text-gray-400">avg per person</div>
+                </div>
+              </div>
             )}
 
             {/* Navigation */}

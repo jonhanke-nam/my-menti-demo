@@ -8,7 +8,8 @@ export default function ParticipantView() {
   const { roomCode } = useParams<{ roomCode: string }>();
   const { participantId, currentQuestion, setCurrentQuestion, setSessionEnded, sessionEnded } =
     useSessionStore();
-  const [voted, setVoted] = useState(false);
+  const [voteCount, setVoteCount] = useState(0);
+  const [justVoted, setJustVoted] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [connected, setConnected] = useState(false);
 
@@ -24,7 +25,8 @@ export default function ParticipantView() {
 
     socket.on("session:question", ({ question }: { question: Question }) => {
       setCurrentQuestion(question);
-      setVoted(false);
+      setVoteCount(0);
+      setJustVoted(false);
       setTextInput("");
     });
 
@@ -52,7 +54,10 @@ export default function ParticipantView() {
       value,
       participantId,
     });
-    setVoted(true);
+    setVoteCount((c) => c + 1);
+    setTextInput("");
+    setJustVoted(true);
+    setTimeout(() => setJustVoted(false), 1500);
   };
 
   if (sessionEnded) {
@@ -86,18 +91,6 @@ export default function ParticipantView() {
     );
   }
 
-  if (voted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-500 to-teal-600">
-        <div className="text-center text-white">
-          <div className="text-5xl mb-4">&#10003;</div>
-          <h2 className="text-xl font-medium">Vote submitted!</h2>
-          <p className="text-green-100 mt-1">Waiting for next question...</p>
-        </div>
-      </div>
-    );
-  }
-
   const parsedOptions: string[] = currentQuestion.options
     ? JSON.parse(currentQuestion.options)
     : [];
@@ -111,6 +104,18 @@ export default function ParticipantView() {
       <div className="flex-1 flex items-center justify-center">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-2xl shadow-xl p-6">
+            {justVoted && (
+              <div className="bg-green-100 text-green-700 text-center py-2 px-4 rounded-lg mb-4 text-sm font-medium">
+                &#10003; Submitted! You can vote again.
+              </div>
+            )}
+
+            {voteCount > 0 && !justVoted && (
+              <div className="text-center text-gray-400 text-xs mb-3">
+                You've submitted {voteCount} response{voteCount !== 1 ? "s" : ""}
+              </div>
+            )}
+
             <h2 className="text-xl font-bold text-gray-800 text-center mb-6">
               {currentQuestion.prompt}
             </h2>

@@ -33,6 +33,9 @@ interface SessionState {
   results: Record<string, number>;
   setResults: (r: Record<string, number>) => void;
 
+  resultStats: { participantCount: number; totalResponses: number; avgResponsesPerPerson: number };
+  setResultStats: (s: { participantCount: number; totalResponses: number; avgResponsesPerPerson: number }) => void;
+
   presentations: Presentation[];
   setPresentations: (p: Presentation[]) => void;
 
@@ -69,6 +72,9 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   results: {},
   setResults: (results) => set({ results }),
+
+  resultStats: { participantCount: 0, totalResponses: 0, avgResponsesPerPerson: 0 },
+  setResultStats: (resultStats) => set({ resultStats }),
 
   presentations: [],
   setPresentations: (presentations) => set({ presentations }),
