@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { socket } from "../socket";
 import { useSessionStore, Question } from "../store/sessionStore";
-import BarChart from "../components/charts/BarChart";
+import MultipleChoice from "../components/slides/MultipleChoice";
+import WordCloud from "../components/slides/WordCloud";
+import OpenText from "../components/slides/OpenText";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
@@ -16,14 +18,12 @@ export default function PresenterView() {
   const [connected, setConnected] = useState(false);
   const [title, setTitle] = useState("");
 
-  // Fetch presentation data and connect socket
   useEffect(() => {
     if (!roomCode || !token) {
       navigate("/");
       return;
     }
 
-    // Fetch presentation info
     fetch(`${API_URL}/api/join/${roomCode}`)
       .then((r) => r.json())
       .then((data) => {
@@ -41,11 +41,7 @@ export default function PresenterView() {
       socket.emit("presenter:join", { roomCode, token });
     });
 
-    socket.on("session:results", ({ questionId, counts }: { questionId: number; counts: Record<string, number> }) => {
-      if (currentQuestion && currentQuestion.id === questionId) {
-        setResults(counts);
-      }
-      // Also update if we don't have a current question set yet
+    socket.on("session:results", ({ counts }: { questionId: number; counts: Record<string, number> }) => {
       setResults(counts);
     });
 
@@ -82,8 +78,6 @@ export default function PresenterView() {
       </div>
     );
   }
-
-  const totalVotes = Object.values(results).reduce((sum, v) => sum + v, 0);
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -128,28 +122,18 @@ export default function PresenterView() {
           </div>
         ) : currentQuestion ? (
           <div className="w-full max-w-3xl">
-            <h2 className="text-3xl font-bold text-center mb-2">
-              {currentQuestion.prompt}
-            </h2>
-            <p className="text-gray-400 text-center mb-8">
-              {totalVotes} vote{totalVotes !== 1 ? "s" : ""}
-            </p>
-
-            {/* Results visualization */}
-            <div className="bg-gray-800 rounded-2xl p-6 mb-8">
-              {currentQuestion.type === "multiple_choice" && (
-                <BarChart counts={results} />
-              )}
-              {currentQuestion.type === "word_cloud" && (
-                <WordCloudDisplay counts={results} />
-              )}
-              {currentQuestion.type === "open_text" && (
-                <OpenTextDisplay counts={results} />
-              )}
-            </div>
+            {currentQuestion.type === "multiple_choice" && (
+              <MultipleChoice prompt={currentQuestion.prompt} counts={results} />
+            )}
+            {currentQuestion.type === "word_cloud" && (
+              <WordCloud prompt={currentQuestion.prompt} counts={results} />
+            )}
+            {currentQuestion.type === "open_text" && (
+              <OpenText prompt={currentQuestion.prompt} counts={results} />
+            )}
 
             {/* Navigation */}
-            <div className="flex justify-between">
+            <div className="flex justify-between mt-8">
               <button
                 onClick={() => goToQuestion(currentIndex - 1)}
                 disabled={currentIndex <= 0}
@@ -168,54 +152,6 @@ export default function PresenterView() {
           </div>
         ) : null}
       </div>
-    </div>
-  );
-}
-
-// Inline word cloud display (simple sized-text approach)
-function WordCloudDisplay({ counts }: { counts: Record<string, number> }) {
-  const entries = Object.entries(counts);
-  if (entries.length === 0) {
-    return <p className="text-gray-400 text-center py-8">No responses yet</p>;
-  }
-
-  const maxCount = Math.max(...entries.map(([, v]) => v));
-
-  return (
-    <div className="flex flex-wrap gap-3 justify-center items-center py-8">
-      {entries.map(([word, count]) => {
-        const scale = 0.8 + (count / maxCount) * 2;
-        return (
-          <span
-            key={word}
-            className="text-blue-400 font-bold transition-all"
-            style={{ fontSize: `${scale}rem` }}
-          >
-            {word}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-// Inline open text display
-function OpenTextDisplay({ counts }: { counts: Record<string, number> }) {
-  const entries = Object.entries(counts);
-  if (entries.length === 0) {
-    return <p className="text-gray-400 text-center py-8">No responses yet</p>;
-  }
-
-  return (
-    <div className="max-h-80 overflow-y-auto space-y-2">
-      {entries.map(([text]) => (
-        <div
-          key={text}
-          className="bg-gray-700 rounded-lg px-4 py-3 text-gray-200"
-        >
-          {text}
-        </div>
-      ))}
     </div>
   );
 }
