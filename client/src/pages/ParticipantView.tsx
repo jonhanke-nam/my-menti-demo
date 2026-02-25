@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { socket } from "../socket";
-import { useSessionStore, Question } from "../store/sessionStore";
+import { useSessionStore } from "../store/sessionStore";
+import type { Question } from "../store/sessionStore";
 
 export default function ParticipantView() {
   const { roomCode } = useParams<{ roomCode: string }>();

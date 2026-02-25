@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { socket } from "../socket";
-import { useSessionStore, Question } from "../store/sessionStore";
+import { useSessionStore } from "../store/sessionStore";
+import type { Question } from "../store/sessionStore";
 import MultipleChoice from "../components/slides/MultipleChoice";
 import WordCloud from "../components/slides/WordCloud";
 import OpenText from "../components/slides/OpenText";

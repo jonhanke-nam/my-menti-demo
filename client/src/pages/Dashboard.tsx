@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSessionStore, Presentation, Question } from "../store/sessionStore";
+import { useSessionStore } from "../store/sessionStore";
+import type { Presentation, Question } from "../store/sessionStore";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
