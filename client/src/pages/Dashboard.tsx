@@ -333,7 +333,7 @@ export default function Dashboard() {
                                         )}
                                       </div>
                                     ))}
-                                    {questionForm.options.length < 4 && (
+                                    {questionForm.options.length < 6 && (
                                       <button
                                         type="button"
                                         onClick={() =>
@@ -342,7 +342,7 @@ export default function Dashboard() {
                                             options: [...questionForm.options, ""],
                                           })
                                         }
-                                        className="text-blue-600 text-sm hover:text-blue-700"
+                                        className="inline-flex items-center gap-1 text-blue-600 text-sm hover:text-blue-700 font-medium mt-1"
                                       >
                                         + Add option
                                       </button>
@@ -451,7 +451,7 @@ export default function Dashboard() {
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none"
                               />
                             ))}
-                            {questionForm.options.length < 4 && (
+                            {questionForm.options.length < 6 && (
                               <button
                                 type="button"
                                 onClick={() =>
@@ -460,7 +460,7 @@ export default function Dashboard() {
                                     options: [...questionForm.options, ""],
                                   })
                                 }
-                                className="text-blue-600 text-sm hover:text-blue-700"
+                                className="inline-flex items-center gap-1 text-blue-600 text-sm hover:text-blue-700 font-medium mt-1"
                               >
                                 + Add option
                               </button>
